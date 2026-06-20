@@ -4,6 +4,8 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
 // https://vite.dev/config/
+// 自定义域名时改为 base: '/'
+// 默认 GitHub Pages (https://bbylw.github.io/CKMPRO/) 使用 '/CKMPRO/'
 export default defineConfig({
   base: '/CKMPRO/',
   build: {
