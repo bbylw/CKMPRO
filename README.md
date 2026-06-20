@@ -230,7 +230,7 @@ base: process.env.VITE_BASE_URL || '/'
 4. 点击 Save and Deploy，等待构建完成
 5. Cloudflare Pages 自动配置 SPA 回退，无需额外设置
 
-> 部署前请删除 `public/CNAME` 文件（该文件仅用于 GitHub Pages 自定义域名）。
+> `public/CNAME` 文件是 GitHub Pages 专用，其他平台会自动忽略，无需删除，支持多平台同时部署。
 
 **方式二：Wrangler CLI**
 
