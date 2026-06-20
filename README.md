@@ -152,23 +152,71 @@ ckm-popular-science/
 
 ## 部署指南
 
-本项目为纯前端静态应用，构建后产出 `dist/` 目录，可部署到任意静态托管平台。以下介绍四种主流平台的部署方式。
+本项目为纯前端静态应用，构建后产出 `dist/` 目录，可部署到任意静态托管平台。
 
 ### 前置准备
 
 ```bash
+# 安装依赖
+npm install
+
 # 构建生产版本
 npm run build
 
 # 构建产物在 dist/ 目录
-# 包含 index.html + assets/*.js + assets/*.css
+# 包含 index.html + 404.html + assets/*.js + assets/*.css + CNAME + favicon.svg
 ```
 
-> **注意**：本项目使用 React Router 的 `BrowserRouter`，部署时需配置 SPA 回退规则（所有路径返回 `index.html`），否则刷新子路由页面会出现 404。
+### base 路径说明
+
+项目通过环境变量 `VITE_BASE_URL` 控制 base 路径，**一份代码兼容所有平台**：
+
+```typescript
+// vite.config.ts
+base: process.env.VITE_BASE_URL || '/'
+```
+
+| 场景 | 需要设置 `VITE_BASE_URL` | base 值 |
+|------|-------------------------|---------|
+| Cloudflare / Vercel / Netlify | 不需要 | `/` |
+| GitHub Pages 默认地址（`用户名.github.io/仓库名/`） | 需要 | `/仓库名/` |
+| GitHub Pages 自定义域名 | 不需要 | `/` |
+
+> **注意**：本项目使用 React Router 的 `BrowserRouter`，部署时需配置 SPA 回退规则（所有路径返回 `index.html`），否则刷新子路由页面会出现 404。构建脚本已自动将 `index.html` 复制为 `404.html`。
 
 ---
 
-### 1. Cloudflare Pages
+### 1. GitHub Pages（当前部署方式）
+
+本项目已配置 GitHub Actions 自动部署，并绑定自定义域名 `ckmpro.ndjp.net`。
+
+**已包含的配置文件**：
+
+- `.github/workflows/deploy.yml` — 自动构建部署工作流
+- `public/CNAME` — 自定义域名配置（内容为 `ckmpro.ndjp.net`）
+- `package.json` 的 `build` 脚本 — 构建后自动生成 `404.html` 用于 SPA 回退
+
+**部署步骤**：
+
+1. 将代码推送到 GitHub 仓库的 `main` 分支
+2. 在仓库 Settings → Pages → Source 选择 `GitHub Actions`
+3. GitHub Actions 自动触发构建和部署
+4. （可选）在 Settings → Pages → Custom domain 填入自定义域名
+
+**如需改回 GitHub Pages 默认地址**（`用户名.github.io/仓库名/`）：
+
+1. 删除 `public/CNAME` 文件
+2. 在 `.github/workflows/deploy.yml` 的 `npm run build` 步骤添加环境变量：
+   ```yaml
+   - run: npm run build
+     env:
+       VITE_BASE_URL: /仓库名/
+   ```
+3. 在 Settings → Pages → Custom domain 中移除自定义域名
+
+---
+
+### 2. Cloudflare Pages
 
 **方式一：Git 集成（推荐）**
 
@@ -178,9 +226,11 @@ npm run build
    - **Framework preset**：`Vite`
    - **Build command**：`npm run build`
    - **Build output directory**：`dist`
-   - **Node version**（环境变量）：`NODE_VERSION = 18`
+   - **环境变量**：`NODE_VERSION = 18`
 4. 点击 Save and Deploy，等待构建完成
 5. Cloudflare Pages 自动配置 SPA 回退，无需额外设置
+
+> 部署前请删除 `public/CNAME` 文件（该文件仅用于 GitHub Pages 自定义域名）。
 
 **方式二：Wrangler CLI**
 
@@ -192,12 +242,12 @@ npm install -g wrangler
 wrangler login
 
 # 部署
-wrangler pages deploy dist --project-name ckm-popular-science
+wrangler pages deploy dist --project-name ckm-pro
 ```
 
 ---
 
-### 2. Vercel
+### 3. Vercel
 
 **方式一：Git 集成（推荐）**
 
@@ -209,6 +259,8 @@ wrangler pages deploy dist --project-name ckm-popular-science
    - **Output Directory**：`dist`
 4. 点击 Deploy，等待部署完成
 5. Vercel 自动处理 SPA 路由回退，无需额外配置
+
+> 部署前请删除 `public/CNAME` 文件。
 
 **方式二：Vercel CLI**
 
@@ -225,7 +277,7 @@ vercel --prod
 
 ---
 
-### 3. Netlify
+### 4. Netlify
 
 **方式一：Git 集成（推荐）**
 
@@ -255,6 +307,8 @@ vercel --prod
     status = 200
   ```
 
+> 部署前请删除 `public/CNAME` 文件。
+
 **方式二：Netlify CLI**
 
 ```bash
@@ -270,102 +324,37 @@ netlify deploy --dir=dist --prod
 
 ---
 
-### 4. GitHub Pages
-
-**方式一：GitHub Actions（推荐）**
-
-1. 将代码推送到 GitHub 仓库
-2. 在仓库 Settings → Pages → Source 选择 `GitHub Actions`
-3. 在项目根目录创建 `.github/workflows/deploy.yml`：
-
-```yaml
-name: Deploy to GitHub Pages
-
-on:
-  push:
-    branches: [main]
-  workflow_dispatch:
-
-permissions:
-  contents: read
-  pages: write
-  id-token: write
-
-concurrency:
-  group: pages
-  cancel-in-progress: false
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 18
-          cache: npm
-      - run: npm ci
-      - run: npm run build
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: dist
-
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
-```
-
-4. **配置 base 路径**：GitHub Pages 默认部署到 `https://用户名.github.io/仓库名/`，需修改 `vite.config.ts`：
-
-```typescript
-export default defineConfig({
-  base: '/仓库名/',  // 例如 base: '/ckm-popular-science/'
-  // ...其余配置
-})
-```
-
-5. 推送代码到 `main` 分支，GitHub Actions 自动构建部署
-6. 部署完成后访问 `https://用户名.github.io/仓库名/`
-
-> **如果使用自定义域名**（`https://用户名.github.io/`），则无需设置 `base`，保持默认 `/` 即可。
-
-**SPA 回退配置**：GitHub Pages 不支持服务端重写规则，需在 `index.html` 的 `<head>` 中添加 404 跳转脚本，或改用 `HashRouter`（URL 带 `#`）。
-
-在 `public/` 目录创建 `404.html`，内容与 `index.html` 相同，并在 `<head>` 中加入：
-
-```html
-<script>
-  // GitHub Pages SPA 回退
-  var pathSegmentsToKeep = 1; // 仓库名占 1 段，自定义域名改为 0
-  var l = window.location;
-  l.replace(
-    l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') +
-    l.pathname.split('/').slice(0, 1 + pathSegmentsToKeep).join('/') + '/?/' +
-    l.pathname.slice(1).split('/').slice(pathSegmentsToKeep).join('/').replace(/&/g, '~and~') +
-    (l.search ? '&' + l.search.slice(1).replace(/&/g, '~and~') : '') +
-    l.hash
-  );
-</script>
-```
-
----
-
 ### 部署平台对比
 
-| 平台 | 免费额度 | 自定义域名 | HTTPS | SPA 回退 | 构建分钟 |
+| 平台 | 免费额度 | 自定义域名 | HTTPS | SPA 回退 | 构建限制 |
 |------|---------|-----------|-------|---------|---------|
+| GitHub Pages | 无限（公开仓库） | 支持 | 自动 | 404.html | 2000 分钟/月 |
 | Cloudflare Pages | 无限请求 | 支持 | 自动 | 自动 | 500 次/月 |
 | Vercel | 100GB 流量/月 | 支持 | 自动 | 自动 | 6000 分钟/月 |
 | Netlify | 100GB 流量/月 | 支持 | 自动 | 需配置 | 300 分钟/月 |
-| GitHub Pages | 无限（公开仓库） | 支持 | 自动 | 需配置 | 2000 分钟/月 |
 
-> **推荐**：Cloudflare Pages 或 Vercel，两者对 Vite + React Router 项目开箱即用，无需额外配置 SPA 回退。
+> **当前部署**：GitHub Pages + 自定义域名 `ckmpro.ndjp.net`，访问地址 https://ckmpro.ndjp.net
+
+### 自定义域名 DNS 配置
+
+以 GitHub Pages 为例，绑定自定义域名需添加以下 DNS 记录之一：
+
+**CNAME 记录**（推荐）：
+
+| 类型 | 名称 | 值 |
+|------|------|-----|
+| CNAME | `ckmpro` | `bbylw.github.io` |
+
+**A 记录**：
+
+| 类型 | 名称 | 值 |
+|------|------|-----|
+| A | `ckmpro` | `185.199.108.153` |
+| A | `ckmpro` | `185.199.109.153` |
+| A | `ckmpro` | `185.199.110.153` |
+| A | `ckmpro` | `185.199.111.153` |
+
+DNS 生效后，GitHub Pages 会自动签发 HTTPS 证书。
 
 ## 数据来源
 
