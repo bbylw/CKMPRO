@@ -20,7 +20,7 @@ export function Section({ id, children, className, background = "cream" }: Secti
           observer.disconnect();
         }
       },
-      { threshold: 0.12 }
+      { threshold: 0, rootMargin: "0px 0px -50px 0px" }
     );
 
     if (ref.current) {
